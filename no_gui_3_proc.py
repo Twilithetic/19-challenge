@@ -6,7 +6,7 @@ import numpy as np
 DEBUG = 1
 DEBUG2 = 0
 DEBUG3 = 1
-
+DEBUG4 = 1
 def get_distance(frame):
     CANNY_THRESH_LOW = 50
     CANNY_THRESH_HIGH = 150
@@ -24,12 +24,32 @@ def get_distance(frame):
         # 0表示无限等待，直到有按键输入
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
-    filter_contours(frame, contours)
-    
+    in_out_rect_contours, in_out_hierarchy = filter_contours(frame, contours, hierarchy)
+    inner_contour = None
+    outer_contour = None
 
-def filter_contours(frame, contours):
+    for i, contour in enumerate(in_out_rect_contours):
+        # 外轮廓：没有父轮廓（hierarchy[3] == -1）
+        if in_out_hierarchy[i][3] == -1:
+            outer_contour = contour
+        else:
+            # 内轮廓：有父轮廓（hierarchy[3] != -1）
+            inner_contour = contour
+
+
+    if DEBUG4:# 3. 显示这一帧(全部的轮廓)
+        frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
+        cv2.drawContours(frame4, [inner_contour], 0, (0, 255, 0), 2)
+        cv2.imshow("A4 Detection", frame4)
+        # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
+        # 0表示无限等待，直到有按键输入
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()  # 关闭窗口
+
+def filter_contours(frame, contours, hierarchy):
     MAX_EDGE_DISTANCE_RATIO = 0.05  # 内矩形距离图像边缘至少5%
-    candidate_contours = None
+    candidate_contours = []
+    candidate_hierarchy = []  # 保存候选轮廓对应的层级信息
     for i, contour in enumerate(contours):
         area = cv2.contourArea(contour)
         if area < 2000:  # 过滤过小轮廓（小于A4纸1%面积）
@@ -63,10 +83,12 @@ def filter_contours(frame, contours):
             cv2.destroyAllWindows()  # 关闭窗口
         
         candidate_contours.append(contour)
+        candidate_hierarchy.append(hierarchy[0][i])  # 记录当前轮廓的层级信息
     
      # 过滤相似轮廓
     filtered_contours = []
-    for contour in candidate_contours:
+    filtered_hierarchy = []  # 同步保存过滤后轮廓的层级信息
+    for i, contour in enumerate(candidate_contours):
         # 检查当前轮廓是否与已保留的轮廓相似
         similar = False
         for filtered in filtered_contours:
@@ -75,7 +97,9 @@ def filter_contours(frame, contours):
                 break
         if not similar:
             filtered_contours.append(contour)
-    for contour in filter_contours:
+            filtered_hierarchy.append(candidate_hierarchy[i])  # 同步添加层级
+    
+    for contour in filtered_contours:
         if DEBUG3:# 3. 显示这一帧(全部的轮廓)
             frame3 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
             cv2.drawContours(frame3, [contour], 0, (0, 255, 0), 2)
@@ -84,11 +108,12 @@ def filter_contours(frame, contours):
             # 0表示无限等待，直到有按键输入
             cv2.waitKey(0)
             cv2.destroyAllWindows()  # 关闭窗口
+    return filtered_contours, filtered_hierarchy
     
 
 
         
-def are_contours_similar(contour1, contour2, shape_threshold=0.1, area_threshold=0.1, center_threshold=0.1):
+def are_contours_similar(contour1, contour2, shape_threshold=0.01, area_threshold=0.01, center_threshold=0.01):
     """判断两个轮廓是否相似"""
     # 比较面积
     area1 = cv2.contourArea(contour1)
