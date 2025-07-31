@@ -52,7 +52,7 @@
                         <div class="relative rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
                             <img id="videoFeed" src="/video_feed" alt="摄像头实时画面" 
                                  class="w-full h-auto object-contain">
-                            <div id="statusOverlay" class="absolute top-4 left-4 bg-danger/80 text-white px-3 py-1 rounded-full text-sm font-medium hidden">
+                            <div id="statusOverlay" class="absolute top-4 right-4 bg-danger/80 text-white px-3 py-1 rounded-full text-sm font-medium hidden">
                                 <i class="fa fa-spinner fa-spin mr-2"></i>处理中...
                             </div>
                         </div>
@@ -66,10 +66,18 @@
                         <button id="stopBtn" class="bg-danger hover:bg-danger/90 text-white font-semibold py-3 px-6 rounded-lg transition-custom transform hover:scale-105 flex items-center justify-center hidden">
                             <i class="fa fa-stop-circle mr-2"></i>停止测试
                         </button>
+
+                        <button id="startBtn" class="bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-6 rounded-lg transition-custom transform hover:scale-105 flex items-center justify-center">
+                            <i class="fa fa-play-circle mr-2"></i>一键启动
+                        </button>
+
+                        <button id="procBtn" class="bg-danger hover:bg-danger/90 text-white font-semibold py-3 px-6 rounded-lg transition-custom transform hover:scale-105 flex items-center justify-center hidden">
+                            <i class="fa fa-stop-circle mr-2"></i>运行中
+                        </button>
                         
                         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
-                                <i class="fa fa-info-circle text-primary mr-2"></i>检测信息
+                                <i class="fa fa-info-circle text-primary mr-2"></i>检测结果
                             </h3>
                             <div id="distanceInfo" class="text-gray-600 mb-2">
                                 <span class="font-medium">距离:</span> <span id="distanceValue">-- cm</span>

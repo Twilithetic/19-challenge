@@ -1,4 +1,4 @@
-#! ./.conda/bin/python
+#! .conda/bin/python
 from flask import Flask, Response, render_template_string, request, jsonify,render_template
 import cv2
 import threading
@@ -8,17 +8,25 @@ app = Flask(__name__, template_folder='static')
 
 # 全局变量控制是否进行图像处理
 process_image = False
+# 存储距离数据的数组
+distance_data = []
+filter_len = 10
+
 # 保护共享变量的锁
 lock = threading.Lock()
 
 
+
 def generate_frames():
+    # 声明使用全局变量（关键修复！）
+    global process_image, latest_results
+
     # 打开摄像头
     cap = cv2.VideoCapture(0)
     
     # # 设置摄像头分辨率
-    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
     
     # 已知实际参数（示例：一个面积为470cm²的矩形）
     REAL_AREA_CM2 = 470
@@ -39,6 +47,16 @@ def generate_frames():
             if rect is not None:
                 # 计算距离
                 distance = calculate_distance_cm(pixel_area, REAL_AREA_CM2) * 10
+                # 将距离添加到数据数组
+                with lock:
+                    distance_data.append(distance)
+                    
+                    # 检查数据量是否超过1000，如果是则停止处理
+                    if len(distance_data) >= filter_len:
+                        # 计算平均值
+                        latest_results["distance"] = sum(distance_data) / len(distance_data)
+                        # 停止处理
+                        process_image = False
                 
                 # 在图像上绘制结果
                 cv2.drawContours(frame, [rect], -1, (0, 255, 0), 3)
@@ -53,11 +71,15 @@ def generate_frames():
                     cv2.putText(frame, f"{distance:.1f}cm", (cX - 50, cY),
                                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 
+                with lock:
+                    data_count = len(distance_data)
                 # 在左上角显示信息
                 cv2.putText(frame, f"Distance: {distance:.1f}cm", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                 cv2.putText(frame, f"Area: {pixel_area}px", (10, 70),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.putText(frame, f"Data: {data_count}/1000", (10, 110),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
         
         # 编码为JPEG
         ret, buffer = cv2.imencode('.jpg', frame)
@@ -81,8 +103,11 @@ def video_feed():
 
 @app.route('/start_process', methods=['POST'])
 def start_process():
-    global process_image
+    global process_image, distance_data
     with lock:
+        # 重置数据
+        distance_data = []
+        # 开始处理
         process_image = True
     return jsonify({"status": "started"})
 
@@ -92,6 +117,13 @@ def stop_process():
     with lock:
         process_image = False
     return jsonify({"status": "stopped"})
+
+# @app.route('/stop_process', methods=['POST'])
+# def stop_process():
+#     global process_image
+#     with lock:
+#         process_image = False
+#     return jsonify({"status": "stopped"})
 
 # 存储最新的处理结果
 latest_results = {
