@@ -182,6 +182,7 @@ def detect_shapes_in_a4(roi, pixel_to_cm_ratio):
     # 提取轮廓
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     detected_shapes = []
+    squares = []  # 专门存储检测到的正方形（用于后续统计）
     
     for cnt in contours:
         area = cv2.contourArea(cnt)
@@ -216,7 +217,16 @@ def detect_shapes_in_a4(roi, pixel_to_cm_ratio):
             if all(d > 0 for d in dists) and (max(dists) - min(dists) < 0.2 * np.mean(dists)):
                 side_cm = np.mean(dists) * pixel_to_cm_ratio
                 detected_shapes.append(('square', cnt, side_cm))
-    
+        # ---------------------- 新增：统计正方形数量和最小边长 ----------------------
+    squares = [s for s in detected_shapes if s[0][0] == 'square']  # 筛选所有正方形
+    min_square = None
+    if squares:
+        # 按边长（元组的第三个元素）找最小值
+        min_square = min(squares, key=lambda x: x[2])
+
+    detected_shapes = min_square
+
+
     return detected_shapes
 
 
