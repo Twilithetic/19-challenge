@@ -22,7 +22,8 @@ def main():
         # if(key == ord('1')):
         #     print("处理1")
 
-        get_distance(frame)
+        distance, A4_frame = get_distance(frame)
+        print(f"距离(D): {distance}")
         # 显示图像
         cv2.imshow("A4 Detection", frame)
 

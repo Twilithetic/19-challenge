@@ -6,7 +6,8 @@ import numpy as np
 DEBUG = 1
 DEBUG2 = 0
 DEBUG3 = 0
-DEBUG4 = 1
+DEBUG4 = 0
+DEBUG5 = 1
 def get_distance(frame):
     CANNY_THRESH_LOW = 50
     CANNY_THRESH_HIGH = 100
@@ -46,6 +47,15 @@ def get_distance(frame):
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
     distance = calculate_a4_distance(inner_contour)
+
+    A4_frame = cut_ROI_from_frame(frame, inner_contour)
+    if DEBUG5:# 3. 显示这一帧(全部的轮廓)
+        cv2.imshow("A4 Detection", A4_frame)
+        # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
+        # 0表示无限等待，直到有按键输入
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()  # 关闭窗口
+    return distance, A4_frame
     print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
@@ -157,3 +167,25 @@ def calculate_a4_distance(contour):
     pixel_area = cv2.contourArea(contour)
     # 距离公式：基于面积比例计算
     return np.sqrt(A4_AREA_CM2 / pixel_area) * DISTANCE_SCALE_FACTOR
+
+
+
+
+def cut_ROI_from_frame(frame, inner_contour):
+     # 切割inner_contour包围的区域
+    A4_frame = None  # 初始化A4_frame
+    if inner_contour is not None:
+        # 1. 获取inner_contour的边界矩形（x,y为左上角坐标，w,h为宽高）
+        x, y, w, h = cv2.boundingRect(inner_contour)
+        
+        # 2. 确保坐标在图像范围内（避免越界）
+        h_frame, w_frame = frame.shape[:2]
+        x = max(0, x)
+        y = max(0, y)
+        w = min(w, w_frame - x)
+        h = min(h, h_frame - y)
+        
+        # 3. 切割区域（OpenCV图像是numpy数组，用切片提取）
+        A4_frame = frame[y:y+h, x:x+w]  # [y开始:y结束, x开始:x结束]
+    return A4_frame
+
