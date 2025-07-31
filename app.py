@@ -1,9 +1,9 @@
-from flask import Flask, Response, render_template_string, request, jsonify
+from flask import Flask, Response, render_template_string, request, jsonify,render_template
 import cv2
 import numpy as np
 import threading
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='static')
 
 # 全局变量控制是否进行图像处理
 process_image = False
@@ -110,160 +110,10 @@ def generate_frames():
     
     cap.release()
 
+
 @app.route('/')
 def index():
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>OpenCV矩形检测与距离计算</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            primary: '#3B82F6',
-                            secondary: '#10B981',
-                            danger: '#EF4444',
-                            dark: '#1E293B',
-                        },
-                        fontFamily: {
-                            sans: ['Inter', 'system-ui', 'sans-serif'],
-                        },
-                    }
-                }
-            }
-        </script>
-        <style type="text/tailwindcss">
-            @layer utilities {
-                .content-auto {
-                    content-visibility: auto;
-                }
-                .shadow-soft {
-                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-                }
-                .transition-custom {
-                    transition: all 0.3s ease;
-                }
-            }
-        </style>
-    </head>
-    <body class="bg-gray-50 font-sans text-dark">
-        <div class="container mx-auto px-4 py-8 max-w-6xl">
-            <header class="mb-8 text-center">
-                <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-dark mb-2">
-                    <i class="fa fa-camera mr-3 text-primary"></i>矩形检测与距离计算
-                </h1>
-                <p class="text-gray-600 text-lg">点击"测试"按钮开始图像处理，识别最大矩形并计算距离</p>
-            </header>
-            
-            <main class="bg-white rounded-xl shadow-soft p-6 md:p-8 mb-8">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <div class="w-full md:w-3/4">
-                        <div class="relative rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
-                            <img id="videoFeed" src="/video_feed" alt="摄像头实时画面" 
-                                 class="w-full h-auto object-contain">
-                            <div id="statusOverlay" class="absolute top-4 left-4 bg-danger/80 text-white px-3 py-1 rounded-full text-sm font-medium hidden">
-                                <i class="fa fa-spinner fa-spin mr-2"></i>处理中...
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="w-full md:w-1/4 flex flex-col justify-center gap-4">
-                        <button id="testBtn" class="bg-primary hover:bg-primary/90 text-white font-semibold py-3 px-6 rounded-lg transition-custom transform hover:scale-105 flex items-center justify-center">
-                            <i class="fa fa-play-circle mr-2"></i>开始测试
-                        </button>
-                        
-                        <button id="stopBtn" class="bg-danger hover:bg-danger/90 text-white font-semibold py-3 px-6 rounded-lg transition-custom transform hover:scale-105 flex items-center justify-center hidden">
-                            <i class="fa fa-stop-circle mr-2"></i>停止测试
-                        </button>
-                        
-                        <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
-                                <i class="fa fa-info-circle text-primary mr-2"></i>检测信息
-                            </h3>
-                            <div id="distanceInfo" class="text-gray-600 mb-2">
-                                <span class="font-medium">距离:</span> <span id="distanceValue">-- cm</span>
-                            </div>
-                            <div id="areaInfo" class="text-gray-600">
-                                <span class="font-medium">面积:</span> <span id="areaValue">-- px</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-            
-            <footer class="text-center text-gray-500 text-sm">
-                <p>使用OpenCV和Flask构建 | 实时图像处理演示</p>
-            </footer>
-        </div>
-        
-        <script>
-            // 获取DOM元素
-            const testBtn = document.getElementById('testBtn');
-            const stopBtn = document.getElementById('stopBtn');
-            const statusOverlay = document.getElementById('statusOverlay');
-            const distanceValue = document.getElementById('distanceValue');
-            const areaValue = document.getElementById('areaValue');
-            
-            // 开始测试
-            testBtn.addEventListener('click', async () => {
-                try {
-                    const response = await fetch('/start_process', { method: 'POST' });
-                    if (response.ok) {
-                        testBtn.classList.add('hidden');
-                        stopBtn.classList.remove('hidden');
-                        statusOverlay.classList.remove('hidden');
-                    }
-                } catch (error) {
-                    console.error('启动测试失败:', error);
-                }
-            });
-            
-            // 停止测试
-            stopBtn.addEventListener('click', async () => {
-                try {
-                    const response = await fetch('/stop_process', { method: 'POST' });
-                    if (response.ok) {
-                        stopBtn.classList.add('hidden');
-                        testBtn.classList.remove('hidden');
-                        statusOverlay.classList.add('hidden');
-                        distanceValue.textContent = '-- cm';
-                        areaValue.textContent = '-- px';
-                    }
-                } catch (error) {
-                    console.error('停止测试失败:', error);
-                }
-            });
-            
-            // 定期获取处理结果更新UI
-            setInterval(async () => {
-                if (stopBtn.classList.contains('hidden')) return;
-                
-                try {
-                    const response = await fetch('/get_results');
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.distance !== null) {
-                            distanceValue.textContent = `${data.distance.toFixed(1)} cm`;
-                        }
-                        if (data.area !== null) {
-                            areaValue.textContent = `${data.area} px`;
-                        }
-                    }
-                } catch (error) {
-                    console.error('获取结果失败:', error);
-                }
-            }, 100);
-        </script>
-    </body>
-    </html>
-    """
-    return render_template_string(html_content)
+    return render_template('index.html')
 
 @app.route('/video_feed')
 def video_feed():
@@ -287,6 +137,7 @@ def stop_process():
 # 存储最新的处理结果
 latest_results = {
     "distance": None,
+    "x": None,
     "area": None
 }
 
