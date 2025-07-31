@@ -134,14 +134,27 @@ def distinguish_contours(inner_rect, area_cm2):
             x = -1
             type_name = "哟呀正方形"
     if(contour_cnt > 1):
-        type_name = "多个分离的正方形"
+        
         free_square = 0
         for contour in filtter_conrours:# 
             perimeter = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
-            # if(len(approx) == 4)  
-            
+            if(len(approx) == 4): 
+                free_square += 1
+        if(free_square == len(filtter_conrours)):#
+            squares_x = [] 
+            type_name = "多个分离的正方形(最小x)"
+            for contour in filtter_conrours:
+                approx = cv2.approxPolyDP(contour, 0.02 * perimeter, True)
+                pts = approx.reshape(-1, 2)
+                dists = [np.linalg.norm(pts[i] - pts[(i+1) % 4]) for i in range(4)]
+                if all(d > 0 for d in dists) and (max(dists) - min(dists) < 0.2 * np.mean(dists)):
+                    squares_x.append(np.mean(dists) * math.sqrt(area_cm2))
+            x = min(squares_x)
+        else: # 又有游离的，又有重叠的正方形
             pass
+            
+
     return x, type_name
             
 
