@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-from single_char_input import get_single_char
 
 # 定义常量
 CANNY_THRESH_LOW = 50
@@ -297,7 +296,7 @@ def crop_and_detect(roi, pixel_to_cm_ratio, crop_percent=0.1, max_crops=5):
     return roi, crop_count, detected_shapes
 
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
@@ -313,22 +312,23 @@ if __name__ == "__main__":
         ret, frame = cap.read()
         if not ret:
             break
-
-        roi, rect, approx, pixel_ratio = extract_rectangle_roi(frame)
+        #处理距离
+        # roi 是裁剪出来的A4纸范围
+        roi, rect, best_rect, pixel_ratio = extract_rectangle_roi(frame)
         shapes = []
         distance = 0.0
         crop_count = 0
         
-        if approx is not None:
-            contour_history.append(approx)
+        if best_rect is not None:
+            contour_history.append(best_rect)
             if len(contour_history) > STABLE_FRAMES:
                 contour_history.pop(0)
             if len(contour_history) != STABLE_FRAMES:
-                approx = None
+                best_rect = None
         
-        if roi is not None and pixel_ratio > 0 and approx is not None:
+        if roi is not None and pixel_ratio > 0 and best_rect is not None:
             x, y, w, h = rect
-            pixel_area = cv2.contourArea(approx)
+            pixel_area = cv2.contourArea(best_rect)
             distance = calculate_distance_cm(pixel_area, A4_AREA_CM2)
             
             # 只显示距离和面积信息，不检测形状
@@ -353,7 +353,7 @@ if __name__ == "__main__":
         
         cv2.imshow("Distance and Shape Detection", frame)
         
-        key = ord(get_single_char())
+        key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             break
         elif key == ord('a'):
