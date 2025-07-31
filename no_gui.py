@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
+from single_char_input import get_single_char
 
-# 定义常量（新增内矩形筛选参数）
+# 定义常量
 CANNY_THRESH_LOW = 50
 CANNY_THRESH_HIGH = 150
 CONTOUR_EPSILON_RATIO = 0.02
@@ -12,89 +13,115 @@ A4_WIDTH_CM = 21.0
 A4_HEIGHT_CM = 29.7
 A4_AREA_CM2 = A4_WIDTH_CM * A4_HEIGHT_CM
 DISTANCE_SCALE_FACTOR = 1150
-# 新增：内矩形筛选参数（根据黑边厚度调整）
-INNER_RECT_AREA_RATIO = 0.5  # 内矩形面积至少为外矩形的50%（过滤过小轮廓）
-MAX_EDGE_DISTANCE_RATIO = 0.1  # 内矩形距离图像边缘至少为图像尺寸的10%（避免贴边外轮廓）
+
+# 针对2cm黑边的内矩形筛选参数（核心调整）
+INNER_RECT_AREA_RATIO = 0.6  # 内矩形面积至少为外矩形的60%（2cm黑边约占20%面积）
+MAX_EDGE_DISTANCE_RATIO = 0.05  # 内矩形距离图像边缘至少5%（避免外轮廓）
+BLACK_BORDER_PX_MIN = 10  # 黑边最小像素宽度（根据分辨率换算2cm，如1080p下约20px）
 
 def detect_outer_rectangle(gray_img):
-    """识别图像中的内矩形（优先选择内部轮廓）"""
+    """优先识别有黑边A4纸的内矩形"""
     blurred = cv2.GaussianBlur(gray_img, (5, 5), 0)
     edges = cv2.Canny(blurred, CANNY_THRESH_LOW, CANNY_THRESH_HIGH)
     
-    # 关键：使用RETR_TREE获取轮廓层次，区分父子轮廓（外轮廓包含内轮廓）
+    # 获取轮廓及层次结构（关键：RETR_TREE保留父子关系）
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return None, None, None, None
+        return None, None, None, None, None
     
-    # 筛选所有四边形轮廓（可能是外轮廓或内轮廓）
     quad_contours = []
-    h, w = gray_img.shape[:2]  # 图像尺寸（用于判断边缘距离）
+    h, w = gray_img.shape[:2]
     for i, contour in enumerate(contours):
         area = cv2.contourArea(contour)
-        if area < 2000:
+        if area < 2000:  # 过滤过小轮廓（小于A4纸1%面积）
             continue
         
+        # 近似为多边形，筛选四边形
         epsilon = 0.02 * cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon, True)
         if len(approx) != 4:
             continue
         
-        # 计算轮廓边界框
+        # 筛选宽高比符合A4纸的矩形
         x, y, rect_w, rect_h = cv2.boundingRect(approx)
         aspect_ratio = float(rect_w) / rect_h
-        if not (0.5 < aspect_ratio < 2.0):
+        if not (0.6 < aspect_ratio < 0.8):  # 收紧A4比例范围（21/29.7≈0.707）
             continue
         
         # 计算轮廓到图像边缘的距离（内矩形通常远离边缘）
         edge_distances = [x, y, w - (x + rect_w), h - (y + rect_h)]
         min_edge_distance = min(edge_distances)
         if min_edge_distance < MAX_EDGE_DISTANCE_RATIO * min(w, h):
-            continue  # 过滤过于靠近边缘的轮廓（可能是外轮廓）
+            continue
         
-        # 记录：轮廓、面积、层次（是否为子轮廓，即内轮廓）
-        is_child = hierarchy[0][i][3] != -1  # 有父轮廓的是子轮廓（内轮廓）
+        # 判断是否为子轮廓（内轮廓一定是外轮廓的子轮廓）
+        is_child = hierarchy[0][i][3] != -1  # 有父轮廓的是子轮廓
         quad_contours.append({
             "contour": approx,
             "area": area,
             "is_child": is_child,
-            "x": x, "y": y, "w": rect_w, "h": rect_h
+            "x": x, "y": y, "w": rect_w, "h": rect_h,
+            "parent_idx": hierarchy[0][i][3]  # 记录父轮廓索引
         })
     
     if not quad_contours:
-        return None, None, None, None
+        return None, None, None, None, None
     
-    # 优先选择内轮廓（子轮廓）
+    # 步骤1：筛选所有子轮廓（内轮廓候选）
     child_contours = [c for c in quad_contours if c["is_child"]]
     if child_contours:
-        # 从内轮廓中选面积最大且符合A4比例的
-        candidate = max(child_contours, key=lambda x: x["area"])
+        # 步骤2：验证子轮廓与父轮廓的间距是否符合2cm黑边
+        valid_inner = []
+        for child in child_contours:
+            # 找到对应的父轮廓（外轮廓）
+            parent_idx = child["parent_idx"]
+            if parent_idx < 0 or parent_idx >= len(quad_contours):
+                continue
+            parent = quad_contours[parent_idx]
+            
+            # 计算父子轮廓的边缘间距（黑边宽度）
+            border_width = min(
+                child["x"] - parent["x"],  # 左黑边
+                child["y"] - parent["y"],  # 上黑边
+                parent["x"] + parent["w"] - (child["x"] + child["w"]),  # 右黑边
+                parent["y"] + parent["h"] - (child["y"] + child["h"])   # 下黑边
+            )
+            
+            # 黑边宽度需大于最小阈值（2cm对应的像素）
+            if border_width >= BLACK_BORDER_PX_MIN:
+                valid_inner.append(child)
+        
+        # 步骤3：从有效内轮廓中选面积最大的
+        if valid_inner:
+            candidate = max(valid_inner, key=lambda x: x["area"])
+        else:
+            # 无有效内轮廓时，从子轮廓中选面积最大的（放宽黑边限制）
+            candidate = max(child_contours, key=lambda x: x["area"])
     else:
-        # 无内轮廓时，选最可能的外轮廓（备用）
+        # 无任何子轮廓时，退而求其次选外轮廓（不推荐，仅备用）
         candidate = max(quad_contours, key=lambda x: x["area"])
     
-    # 再次过滤：确保内轮廓面积不过小（避免黑边内部的噪声轮廓）
+    # 最终过滤：确保内轮廓面积符合比例
     all_areas = [c["area"] for c in quad_contours]
     max_area = max(all_areas) if all_areas else 0
     if candidate["area"] < INNER_RECT_AREA_RATIO * max_area:
-        return None, None, None, None
+        return None, None, None, None, None
     
     return (candidate["contour"], candidate["x"], candidate["y"], 
             candidate["w"], candidate["h"])
 
-# 以下函数与原代码一致，省略重复部分（extract_rectangle_roi、calculate_distance_cm等）
-# 【注意：需保留原代码中这些函数的实现】
-
 def extract_rectangle_roi(image):
-    """提取矩形ROI并计算像素到厘米的转换比例（不受旋转影响）"""
+    """提取矩形ROI并计算像素到厘米的转换比例"""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    best_rect, x, y, w, h = detect_outer_rectangle(gray)  # 调用优化后的检测函数
+    # 接收5个返回值（修复解包错误）
+    best_rect, x, y, w, h = detect_outer_rectangle(gray)
     
     if best_rect is None:
         return None, None, None, 0.0
     
     roi = image[y:y+h, x:x+w]
     
-    # 计算A4纸四边形的实际边长（像素）
+    # 计算A4纸边长及比例
     pts = best_rect.reshape(4, 2)
     edge_lengths = []
     for i in range(4):
@@ -125,16 +152,12 @@ def extract_rectangle_roi(image):
     
     return roi, (x, y, w, h), best_rect, pixel_to_cm_ratio
 
-# 【此处省略原代码中其他函数（与问题无关，保持不变）】
-
 def calculate_distance_cm(pixel_area, real_area_cm2):
-    """计算距离（单位：cm）"""
     if pixel_area <= 0:
         return 0.0
     return np.sqrt(real_area_cm2 / pixel_area) * DISTANCE_SCALE_FACTOR
 
 def is_equilateral_triangle(approx):
-    """判断三角形是否为等边三角形"""
     if len(approx) != 3:
         return False, 0
     
@@ -156,7 +179,6 @@ def is_equilateral_triangle(approx):
     return False, 0
 
 def detect_shapes_in_roi(roi, pixel_to_cm_ratio):
-    """在ROI中检测形状（仅保留圆形、正方形、等边三角形）"""
     if roi is None or roi.size == 0 or pixel_to_cm_ratio <= 0:
         return []
         
@@ -181,20 +203,17 @@ def detect_shapes_in_roi(roi, pixel_to_cm_ratio):
         approx = cv2.approxPolyDP(cnt, 0.02 * perimeter, True)
         circularity = 4 * np.pi * area / (perimeter ** 2)
 
-        # 圆形检测
         if circularity > CIRCULARITY_THRESH and len(approx) > 5:
             (_, _), radius = cv2.minEnclosingCircle(cnt)
-            diameter_cm = 2 * radius * pixel_to_cm_ratio  # 用准确比例计算
+            diameter_cm = 2 * radius * pixel_to_cm_ratio
             detected.append(('circle', cnt, diameter_cm))
         
-        # 仅保留等边三角形检测（去掉普通三角形）
         elif len(approx) == 3:
             is_equilateral, avg_side_pixel = is_equilateral_triangle(approx)
-            if is_equilateral and avg_side_pixel > 0:  # 只添加等边三角形
+            if is_equilateral and avg_side_pixel > 0:
                 avg_side_cm = avg_side_pixel * pixel_to_cm_ratio
                 detected.append(('equilateral_triangle', cnt, avg_side_cm))
         
-        # 正方形检测
         elif len(approx) == 4:
             pts = approx.reshape(-1, 2)
             dists = [np.linalg.norm(pts[i] - pts[(i + 1) % 4]) for i in range(4)]
@@ -203,13 +222,12 @@ def detect_shapes_in_roi(roi, pixel_to_cm_ratio):
                 continue
                 
             if max(dists) - min(dists) < 0.2 * np.mean(dists):
-                side_length_cm = np.mean(dists) * pixel_to_cm_ratio  # 用准确比例计算
+                side_length_cm = np.mean(dists) * pixel_to_cm_ratio
                 detected.append(('square', cnt, side_length_cm))
     
     return detected
 
 def draw_detected_shapes(image, offset, shapes):
-    """绘制检测到的形状（仅处理圆形、正方形、等边三角形）"""
     x_off, y_off = offset
     for shape, cnt, size in shapes:
         if size <= 0:
@@ -242,7 +260,6 @@ def draw_detected_shapes(image, offset, shapes):
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
 def print_shape_info(shapes, distance):
-    """打印形状信息（仅包含圆形、正方形、等边三角形）"""
     if not shapes:
         print("未检测到任何形状")
         return
@@ -259,7 +276,6 @@ def print_shape_info(shapes, distance):
     print("")
 
 def crop_and_detect(roi, pixel_to_cm_ratio, crop_percent=0.1, max_crops=5):
-    """逐步裁剪ROI区域并尝试检测形状"""
     original_roi = roi.copy()
     crop_count = 0
     detected_shapes = []
@@ -280,8 +296,6 @@ def crop_and_detect(roi, pixel_to_cm_ratio, crop_percent=0.1, max_crops=5):
     
     return roi, crop_count, detected_shapes
 
-
-
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -290,9 +304,10 @@ if __name__ == "__main__":
     last_shapes = []
     last_distance = 0.0
     last_crop_count = 0
-    # 新增：轮廓跟踪（连续3帧相同轮廓才确认，减少跳变）
     contour_history = []
     STABLE_FRAMES = 3
+    # 新增标志位，控制形状检测
+    detect_shapes_flag = False
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -304,46 +319,50 @@ if __name__ == "__main__":
         distance = 0.0
         crop_count = 0
         
-        # 轮廓稳定性过滤
         if approx is not None:
             contour_history.append(approx)
             if len(contour_history) > STABLE_FRAMES:
                 contour_history.pop(0)
-            # 连续STABLE_FRAMES帧都检测到轮廓才确认
-            if len(contour_history) == STABLE_FRAMES:
-                pass  # 已稳定，使用当前轮廓
-            else:
-                approx = None  # 未稳定，不更新
+            if len(contour_history) != STABLE_FRAMES:
+                approx = None
         
         if roi is not None and pixel_ratio > 0 and approx is not None:
             x, y, w, h = rect
             pixel_area = cv2.contourArea(approx)
             distance = calculate_distance_cm(pixel_area, A4_AREA_CM2)
-            shapes = detect_shapes_in_roi(roi, pixel_ratio)
-            draw_detected_shapes(frame, (x, y), shapes)
             
-            last_shapes = shapes
-            last_distance = distance
-            last_crop_count = crop_count
-            
+            # 只显示距离和面积信息，不检测形状
             cv2.putText(frame, f"Distance: {distance:.1f}cm", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.putText(frame, f"Area: {pixel_area:.0f}px", (10, 70),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            if last_crop_count > 0:
-                cv2.putText(frame, f"Cropped: {last_crop_count} times", (10, 110),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            
+            # 只有当按下'a'键时才检测形状
+            if detect_shapes_flag:
+                shapes = detect_shapes_in_roi(roi, pixel_ratio)
+                if shapes:
+                    draw_detected_shapes(frame, (x, y), shapes)
+                    last_shapes = shapes
+                last_distance = distance
+                last_crop_count = crop_count
+                
+                # 显示裁剪信息（如果有）
+                if last_crop_count > 0:
+                    cv2.putText(frame, f"Cropped: {last_crop_count} times", (10, 110),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         
         cv2.imshow("Distance and Shape Detection", frame)
         
-        key = cv2.waitKey(1) & 0xFF
+        key = ord(get_single_char())
         if key == ord('q'):
             break
         elif key == ord('a'):
+            detect_shapes_flag = True  # 设置标志位，开始检测形状
             if roi is None or pixel_ratio <= 0:
                 print("未检测到有效A4纸区域")
                 continue
                 
+            shapes = detect_shapes_in_roi(roi, pixel_ratio)
             if shapes:
                 print_shape_info(shapes, distance)
             else:
@@ -369,6 +388,8 @@ if __name__ == "__main__":
                     cv2.waitKey(500)
                 else:
                     print(f"裁剪{crop_count}次后仍未检测到形状")
+        elif key == ord('d'):
+            detect_shapes_flag = False  # 关闭形状检测
     
     cap.release()
     cv2.destroyAllWindows()
