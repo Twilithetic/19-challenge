@@ -1,2 +1,3 @@
 .conda/
 etc/
+__pycache__/
