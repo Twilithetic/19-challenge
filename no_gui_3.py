@@ -9,7 +9,9 @@ def main():
     global frame
     # 初始化摄像头
     cap = cv2.VideoCapture(0)
-
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+    
     #key = ord(get_single_char())
 
     # 开始第一部分

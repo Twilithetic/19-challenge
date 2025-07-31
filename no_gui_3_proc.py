@@ -5,11 +5,11 @@ import numpy as np
 
 DEBUG = 1
 DEBUG2 = 0
-DEBUG3 = 1
+DEBUG3 = 0
 DEBUG4 = 1
 def get_distance(frame):
     CANNY_THRESH_LOW = 50
-    CANNY_THRESH_HIGH = 150
+    CANNY_THRESH_HIGH = 100
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #转换成灰度
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(blurred, CANNY_THRESH_LOW, CANNY_THRESH_HIGH)
@@ -45,6 +45,8 @@ def get_distance(frame):
         # 0表示无限等待，直到有按键输入
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
+    distance = calculate_a4_distance(inner_contour)
+    print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
     MAX_EDGE_DISTANCE_RATIO = 0.05  # 内矩形距离图像边缘至少5%
@@ -114,6 +116,7 @@ def filter_contours(frame, contours, hierarchy):
 
         
 def are_contours_similar(contour1, contour2, shape_threshold=0.01, area_threshold=0.01, center_threshold=0.01):
+
     """判断两个轮廓是否相似"""
     # 比较面积
     area1 = cv2.contourArea(contour1)
@@ -140,3 +143,17 @@ def are_contours_similar(contour1, contour2, shape_threshold=0.01, area_threshol
         return False
     
     return True
+
+
+
+
+# A4纸物理参数（厘米）
+A4_WIDTH_CM = 21.0
+A4_HEIGHT_CM = 29.7
+A4_AREA_CM2 = A4_WIDTH_CM * A4_HEIGHT_CM
+DISTANCE_SCALE_FACTOR = 1385  # 距离计算缩放因子
+def calculate_a4_distance(contour):
+    """计算镜头到A4纸的距离（厘米）"""
+    pixel_area = cv2.contourArea(contour)
+    # 距离公式：基于面积比例计算
+    return np.sqrt(A4_AREA_CM2 / pixel_area) * DISTANCE_SCALE_FACTOR
