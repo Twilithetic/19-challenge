@@ -1,3 +1,4 @@
+#! ./.conda/bin/python
 from flask import Flask, Response, render_template_string, request, jsonify,render_template
 import cv2
 import numpy as np
