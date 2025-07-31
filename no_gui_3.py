@@ -5,6 +5,7 @@ from no_gui_3_proc import get_distance
 from no_gui_3_proc2 import get_X
 
 frame = None
+DEBUG = 1
 
 def main():
     global frame
@@ -22,11 +23,15 @@ def main():
             break  # 读取失败则退出
         # if(key == ord('1')):
         #     print("处理1")
+        distance = -1
+        while(distance < 0):
+            distance, A4_frame, area_cm2 = get_distance(frame)
+            if(DEBUG):
+                print("重试测距")
+        print(f"距离(D): {distance}cm")
 
-        distance, A4_frame = get_distance(frame)
-        print(f"距离(D): {distance}")
-
-        get_X(A4_frame)
+        x, type_name = get_X(A4_frame, area_cm2)
+        print(f"{type_name}(x): {x}cm")
 
 
         # 显示图像

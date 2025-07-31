@@ -4,11 +4,13 @@ import numpy as np
 
 
 DEBUG = 1
-DEBUG2 = 1
-DEBUG3 = 1
-DEBUG4 = 1
+DEBUG2 = 0
+DEBUG3 = 0
+DEBUG4 = 0
 DEBUG5 = 1
+area_cm2 = None
 def get_distance(frame):
+    global area_cm2
     CANNY_THRESH_LOW = 50
     CANNY_THRESH_HIGH = 100
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #转换成灰度
@@ -29,6 +31,11 @@ def get_distance(frame):
     inner_contour = None
     outer_contour = None
 
+        # 检查是否有有效轮廓
+    if not in_out_rect_contours:
+        print("filter_contours未返回任何轮廓，无法提取内/外轮廓")
+        return -1, -1, -1
+
     for i, contour in enumerate(in_out_rect_contours):
         # 外轮廓：没有父轮廓（hierarchy[3] == -1）
         if in_out_hierarchy[i][3] == -1:
@@ -36,7 +43,7 @@ def get_distance(frame):
         else:
             # 内轮廓：有父轮廓（hierarchy[3] != -1）
             inner_contour = contour
-
+   
 
     if DEBUG4:# 3. 显示这一帧(全部的轮廓)
         frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
@@ -49,15 +56,18 @@ def get_distance(frame):
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
     distance = calculate_a4_distance(inner_contour)
-
+    update_pixel_area_to_cm2(outer_contour)
     A4_frame = cut_ROI_from_frame(frame, inner_contour)
     if DEBUG5:# 3. 显示这一帧(全部的轮廓)
+        global area_cm2
+        print(f"area_cm2:{area_cm2}")
         cv2.imshow("A4 Detection", A4_frame)
         # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
         # 0表示无限等待，直到有按键输入
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
-    return distance, A4_frame
+
+    return distance, A4_frame, area_cm2
     print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
@@ -197,3 +207,15 @@ def cut_ROI_from_frame(frame, inner_contour):
         A4_frame = frame[y:y+h, x:x+w]  # [y开始:y结束, x开始:x结束]
     return A4_frame
 
+def update_pixel_area_to_cm2(outer_contour):
+    global area_cm2
+    try:
+        outer_pixel_area = cv2.contourArea(outer_contour)
+        if outer_pixel_area <= 0:
+            raise ValueError("外轮廓像素面积为0，无法计算比例")
+        # A4纸实际面积是 21cm * 29.7cm
+        area_cm2 = (21 * 29.7) / outer_pixel_area
+        #print(f"更新 area_cm2: {area_cm2} cm²/像素")  # 调试用
+    except Exception as e:
+        print(f"更新 area_cm2 失败: {e}")
+        area_cm2 = None  # 出错时显式设为 None
