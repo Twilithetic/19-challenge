@@ -6,11 +6,11 @@ const distanceValue = document.getElementById('distanceValue');
 const areaValue = document.getElementById('areaValue');
 const startBtn = document.getElementById('startBtn');
 const procBtn = document.getElementById('procBtn');
-
+let count = 4;
 // 开始测试
 testBtn.addEventListener('click', async () => {
     try {
-        const response = await fetch('/start_process', { method: 'POST' });
+        const response = await fetch('/start_test', { method: 'POST' });
         if (response.ok) {
             testBtn.classList.add('hidden');
             stopBtn.classList.remove('hidden');
@@ -24,7 +24,7 @@ testBtn.addEventListener('click', async () => {
 // 停止测试
 stopBtn.addEventListener('click', async () => {
     try {
-        const response = await fetch('/stop_process', { method: 'POST' });
+        const response = await fetch('/stop_test', { method: 'POST' });
         if (response.ok) {
             stopBtn.classList.add('hidden');
             testBtn.classList.remove('hidden');
@@ -51,7 +51,7 @@ startBtn.addEventListener('click', async () => {
             procBtn.classList.add('bg-green-500', 'hover:bg-green-600'); // 绿色及hover效果
 
             // 3. 倒计时逻辑（从5秒开始）
-            let count = 4;
+            
             // 更新按钮文本（带倒计时）
             const updateText = () => {
                 procBtn.innerHTML = `<i class="fa fa-stop-circle mr-2"></i>运行中....${count}`;
@@ -75,6 +75,7 @@ startBtn.addEventListener('click', async () => {
                             procBtn.classList.add('hidden');
                             distanceValue.textContent = '-- cm';
                             areaValue.textContent = '-- px';
+                            count = 4
                         }
                     } catch (error) {
                         console.error('停止测试失败:', error);
@@ -101,6 +102,7 @@ setInterval(async () => {
         if (response.ok) {
             const data = await response.json();
             if (data.distance !== null) {
+                count = -1;
                 distanceValue.textContent = `${data.distance} cm`;
             }
         }

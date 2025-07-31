@@ -8,6 +8,7 @@ app = Flask(__name__, template_folder='static')
 
 # 全局变量控制是否进行图像处理
 process_image = False
+is_test = False
 # 存储距离数据的数组
 distance_data = []
 filter_len = 10
@@ -25,8 +26,8 @@ def generate_frames():
     cap = cv2.VideoCapture(0)
     
     # # 设置摄像头分辨率
-    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
-    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1024)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
     
     # 已知实际参数（示例：一个面积为470cm²的矩形）
     REAL_AREA_CM2 = 470
@@ -39,8 +40,11 @@ def generate_frames():
         # 检查是否需要处理图像
         with lock:
             current_process = process_image
+
         
-        if current_process: # 按了测试才会运行下面的
+
+        
+        if (current_process | is_test): # 按了测试才会运行下面的
             # 找到最大矩形
             rect, pixel_area = find_largest_rectangle(frame)
             
@@ -118,12 +122,19 @@ def stop_process():
         process_image = False
     return jsonify({"status": "stopped"})
 
-# @app.route('/stop_process', methods=['POST'])
-# def stop_process():
-#     global process_image
-#     with lock:
-#         process_image = False
-#     return jsonify({"status": "stopped"})
+@app.route('/start_test', methods=['POST'])
+def start_test():
+    global is_test
+    with lock:
+        is_test = True
+    return jsonify({"status": "stopped"})
+
+@app.route('/stop_test', methods=['POST'])
+def stop_test():
+    global is_test
+    with lock:
+        is_test = False
+    return jsonify({"status": "stopped"})
 
 # 存储最新的处理结果
 latest_results = {
