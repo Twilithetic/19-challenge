@@ -4,9 +4,9 @@ import numpy as np
 
 
 DEBUG = 1
-DEBUG2 = 0
-DEBUG3 = 0
-DEBUG4 = 0
+DEBUG2 = 1
+DEBUG3 = 1
+DEBUG4 = 1
 DEBUG5 = 1
 def get_distance(frame):
     CANNY_THRESH_LOW = 50
@@ -41,6 +41,8 @@ def get_distance(frame):
     if DEBUG4:# 3. 显示这一帧(全部的轮廓)
         frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
         cv2.drawContours(frame4, [inner_contour], 0, (0, 255, 0), 2)
+        cv2.putText(frame4, f" should be one inner", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         cv2.imshow("A4 Detection", frame4)
         # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
         # 0表示无限等待，直到有按键输入
@@ -86,8 +88,12 @@ def filter_contours(frame, contours, hierarchy):
             continue
 
         if DEBUG2:# 3. 显示这一帧(全部的轮廓)
+                # 绘制距离和面积
+            
             frame2 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
             cv2.drawContours(frame2, [contour], 0, (0, 255, 0), 2)
+            cv2.putText(frame2, f"filter1 should be A4 rect only", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.imshow("A4 Detection", frame2)
             # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
             # 0表示无限等待，直到有按键输入
@@ -111,10 +117,12 @@ def filter_contours(frame, contours, hierarchy):
             filtered_contours.append(contour)
             filtered_hierarchy.append(candidate_hierarchy[i])  # 同步添加层级
     
-    for contour in filtered_contours:
+    for i, contour in enumerate(filtered_contours):
         if DEBUG3:# 3. 显示这一帧(全部的轮廓)
             frame3 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
             cv2.drawContours(frame3, [contour], 0, (0, 255, 0), 2)
+            cv2.putText(frame3, f"A4 rect {1 + i}/2", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             cv2.imshow("A4 Detection", frame3)
             # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
             # 0表示无限等待，直到有按键输入

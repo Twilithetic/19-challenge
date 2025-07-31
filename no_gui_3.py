@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from single_char_input import get_single_char
 from no_gui_3_proc import get_distance
+from no_gui_3_proc2 import get_X
 
 frame = None
 
@@ -24,6 +25,10 @@ def main():
 
         distance, A4_frame = get_distance(frame)
         print(f"距离(D): {distance}")
+
+        get_X(A4_frame)
+
+
         # 显示图像
         cv2.imshow("A4 Detection", frame)
 
