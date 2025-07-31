@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>通信演示</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+
+<body>
+    <h1>WebSocket与Fetch通信演示</h1>
+    <div class="container">
+        <div class="panel">
+            <h3>WebSocket通信</h3>
+            <div class="messages" id="wsMessages"></div>
+            <div>
+                <input type="text" id="wsInput" placeholder="输入消息">
+                <button onclick="sendWebSocketMessage()">发送</button>
+            </div>
+        </div>
+        <div class="panel">
+            <h3>Fetch通信</h3>
+            <div class="messages" id="fetchMessages"></div>
+            <button onclick="sendFetchRequest()">获取时间</button>
+        </div>
+    </div>
+
+    <script src="/static/js/javascript.js">
+
+    </script>
+</body>
+
+</html>
