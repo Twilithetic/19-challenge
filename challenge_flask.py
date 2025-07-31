@@ -57,9 +57,9 @@ def generate_frames():
     # 打开摄像头
     cap = cv2.VideoCapture(0)
     
-    # 设置摄像头分辨率
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    # # 设置摄像头分辨率
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     
     # 已知实际参数（示例：一个面积为470cm²的矩形）
     REAL_AREA_CM2 = 470
@@ -73,7 +73,7 @@ def generate_frames():
         with lock:
             current_process = process_image
         
-        if current_process:
+        if current_process: # 按了测试才会运行下面的
             # 找到最大矩形
             rect, pixel_area = find_largest_rectangle(frame)
             
@@ -137,7 +137,6 @@ def stop_process():
 # 存储最新的处理结果
 latest_results = {
     "distance": None,
-    "x": None,
     "area": None
 }
 
