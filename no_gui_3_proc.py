@@ -4,9 +4,9 @@ from no_gui_3_proc4 import print_image
 
 
 DEBUG = 1
-DEBUG2 = 1
-DEBUG3 = 1
-DEBUG4 = 0
+DEBUG2 = 1 #第一次沙宣
+DEBUG3 = 1#第二次
+DEBUG4 = 1#顯示內A4
 DEBUG5 = 0
 
 def get_distance(frame):
@@ -20,6 +20,7 @@ def get_distance(frame):
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
     if DEBUG:
+        print("所有輪廓結構")
         # 3. ???????????
         frame1 = frame.copy()
         cv2.drawContours(frame1, contours, -1, (0, 255, 0), 2)
@@ -49,31 +50,24 @@ def get_distance(frame):
    
 
     if DEBUG4:# 3. 显示这一帧(全部的轮廓)
+        print("內輪廓結果")
         frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
         cv2.drawContours(frame4, [inner_contour], 0, (0, 255, 0), 2)
         cv2.putText(frame4, f" should be one inner", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        cv2.imshow("A4 Detection", frame4)
-        # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
-        # 0表示无限等待，直到有按键输入
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()  # 关闭窗口
+        print_image(frame4)
     distance = calculate_a4_distance(inner_contour)
     area_cm2 = update_pixel_area_to_cm2(outer_contour)
     A4_frame = cut_ROI_from_frame(frame, inner_contour)
     if DEBUG5:# 3. 显示这一帧(全部的轮廓)
         print(f"area_cm2:{area_cm2}")
-        cv2.imshow("A4 Detection", A4_frame)
-        # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
-        # 0表示无限等待，直到有按键输入
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()  # 关闭窗口
+        print_image(A4_frame)
 
     return distance, A4_frame, area_cm2
     print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
-    MAX_EDGE_DISTANCE_RATIO = 0.5  # 内矩形距离图像边缘至少5%
+    MAX_EDGE_DISTANCE_RATIO = 0.1  # 内矩形距离图像边缘至少5%
     candidate_contours = []
     candidate_hierarchy = []  # 保存候选轮廓对应的层级信息
     for i, contour in enumerate(contours):
@@ -99,19 +93,14 @@ def filter_contours(frame, contours, hierarchy):
         if min(edge_distances) < MAX_EDGE_DISTANCE_RATIO * min(w, h):
             continue
 
-        if DEBUG2:# 3. 显示这一帧(全部的轮廓)
+        if DEBUG2:# 第一篩選
                 # 绘制距离和面积
-            
+            print("第一次篩選結果")
             frame2 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
             cv2.drawContours(frame2, [contour], 0, (0, 255, 0), 2)
             cv2.putText(frame2, f"filter1 should be A4 rect only", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow("A4 Detection", frame2)
-            # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
-            # 0表示无限等待，直到有按键输入
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()  # 关闭窗口
-        
+            print_image(frame2)    
         candidate_contours.append(contour)
         candidate_hierarchy.append(hierarchy[0][i])  # 记录当前轮廓的层级信息
     
@@ -131,15 +120,12 @@ def filter_contours(frame, contours, hierarchy):
     
     for i, contour in enumerate(filtered_contours):
         if DEBUG3:# 3. 显示这一帧(全部的轮廓)
+            print("第二次篩選記過")
             frame3 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
             cv2.drawContours(frame3, [contour], 0, (0, 255, 0), 2)
             cv2.putText(frame3, f"A4 rect {1 + i}/2", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            cv2.imshow("A4 Detection", frame3)
-            # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
-            # 0表示无限等待，直到有按键输入
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()  # 关闭窗口
+            print_image(frame3)
     return filtered_contours, filtered_hierarchy
     
 
