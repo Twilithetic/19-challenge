@@ -4,8 +4,8 @@ import math
 
 COLORS_LIST = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 0, 255)]
 
-DEBUG1 = 1
-DEBUG2 = 1
+DEBUG1 = 0
+DEBUG2 = 0
 
 def proc_overlay_square(A4_frame, contour, area_cm2):
     EPSILON_FACTOR = 0.01           # 减小该值可保留更多顶点，有助于检测细微凹点

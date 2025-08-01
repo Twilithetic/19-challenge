@@ -1,13 +1,13 @@
 import cv2
 import numpy as np
-
+from no_gui_3_proc4 import print_image
 
 
 DEBUG = 1
-DEBUG2 = 0
-DEBUG3 = 0
+DEBUG2 = 1
+DEBUG3 = 1
 DEBUG4 = 0
-DEBUG5 = 1
+DEBUG5 = 0
 
 def get_distance(frame):
 
@@ -19,14 +19,12 @@ def get_distance(frame):
     # 提取轮廓及层次（区分父子轮廓）
     contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
-    if DEBUG:# 3. 显示这一帧(全部的轮廓)
-        frame1 = frame.copy()  # 用copy()避免修改原图
+    if DEBUG:
+        # 3. ???????????
+        frame1 = frame.copy()
         cv2.drawContours(frame1, contours, -1, (0, 255, 0), 2)
-        cv2.imshow("A4 Detection", frame1)
-        # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
-        # 0表示无限等待，直到有按键输入
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()  # 关闭窗口
+        print_image(frame1)
+
     in_out_rect_contours, in_out_hierarchy = filter_contours(frame, contours, hierarchy)
     inner_contour = None
     outer_contour = None
@@ -75,7 +73,7 @@ def get_distance(frame):
     print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
-    MAX_EDGE_DISTANCE_RATIO = 0.05  # 内矩形距离图像边缘至少5%
+    MAX_EDGE_DISTANCE_RATIO = 0.5  # 内矩形距离图像边缘至少5%
     candidate_contours = []
     candidate_hierarchy = []  # 保存候选轮廓对应的层级信息
     for i, contour in enumerate(contours):

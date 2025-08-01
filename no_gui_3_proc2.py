@@ -3,8 +3,8 @@ import numpy as np
 import math  # 导入数学模块（用于开平方和π值）
 from no_gui_3_proc3 import proc_overlay_square
 DEBUG6 = 0
-DEBUG7 = 1
-DEBUG8 = 1
+DEBUG7 = 0
+DEBUG8 = 0
 def get_X(A4_frame, area_cm2):
 
     if A4_frame is None:
