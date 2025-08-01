@@ -8,9 +8,9 @@ DEBUG2 = 0
 DEBUG3 = 0
 DEBUG4 = 0
 DEBUG5 = 1
-area_cm2 = None
+
 def get_distance(frame):
-    global area_cm2
+
     CANNY_THRESH_LOW = 50
     CANNY_THRESH_HIGH = 100
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) #转换成灰度
@@ -61,10 +61,9 @@ def get_distance(frame):
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
     distance = calculate_a4_distance(inner_contour)
-    update_pixel_area_to_cm2(outer_contour)
+    area_cm2 = update_pixel_area_to_cm2(outer_contour)
     A4_frame = cut_ROI_from_frame(frame, inner_contour)
     if DEBUG5:# 3. 显示这一帧(全部的轮廓)
-        global area_cm2
         print(f"area_cm2:{area_cm2}")
         cv2.imshow("A4 Detection", A4_frame)
         # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
@@ -213,7 +212,6 @@ def cut_ROI_from_frame(frame, inner_contour):
     return A4_frame
 
 def update_pixel_area_to_cm2(outer_contour):
-    global area_cm2
     try:
         outer_pixel_area = cv2.contourArea(outer_contour)
         if outer_pixel_area <= 0:
@@ -224,3 +222,4 @@ def update_pixel_area_to_cm2(outer_contour):
     except Exception as e:
         print(f"更新 area_cm2 失败: {e}")
         area_cm2 = None  # 出错时显式设为 None
+    return area_cm2

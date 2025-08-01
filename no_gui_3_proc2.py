@@ -133,9 +133,7 @@ def distinguish_contours(A4_frame, area_cm2):
                 x = side_cm = np.mean(dists) * math.sqrt(area_cm2)
                 type_name = "正方形"
         else:
-            proc_overlay_square(A4_frame, contour)
-            x = -1
-            type_name = "哟呀正方形"
+            type_name, x = proc_overlay_square(A4_frame, contour, area_cm2)
     if(contour_cnt > 1):
         
         free_square = 0

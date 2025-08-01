@@ -1,14 +1,16 @@
 import cv2
 import numpy as np
+import math
 
 COLORS_LIST = [(0, 0, 255), (0, 255, 0), (255, 0, 0), (0, 255, 255), (255, 0, 255)]
 
 DEBUG1 = 1
 DEBUG2 = 1
 
-def proc_overlay_square(A4_frame, contour):
-    EPSILON_FACTOR = 0.005           # 减小该值可保留更多顶点，有助于检测细微凹点
+def proc_overlay_square(A4_frame, contour, area_cm2):
+    EPSILON_FACTOR = 0.01           # 减小该值可保留更多顶点，有助于检测细微凹点
     # 遍历每个要显示的轮廓
+    dist_sqs = []
     for contour_idx, contour in enumerate([contour]):
         # 多边形近似（保留更多细节，有助于检测细微凹点）
         perimeter = cv2.arcLength(contour, True)
@@ -36,9 +38,69 @@ def proc_overlay_square(A4_frame, contour):
 
         
   
- 
+        frame2 = A4_frame.copy()  # 用copy()避免修改原图
+
+
+                        # 2. 检测直角点
+        right_angle_info = []
+        for i in range(num_points):
+            p1 = np.array(approx_points[(i-1) % num_points])
+            p2 = np.array(approx_points[i])
+            p3 = np.array(approx_points[(i+1) % num_points])
+            angle, concavity = angle_between_points(p1, p2, p3)
+            point_id = f"{contour_idx+1}-{i}"
+            
+            # 标记直角点
+            if 80 <= angle <= 120 and concavity == "外凸":
+                right_angle_info.append( (p2, i, point_id) )
+                cv2.circle(frame2, tuple(p2), 10, (0, 0, 255), 2)
+                cv2.putText(frame2, point_id, (p2[0]-15, p2[1]-15),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                #print(f"[直角点] 编号 {point_id}，角度: {angle:.1f}°，坐标: {p2}")
+            elif i not in concave_indices:
+                pass#print(f"[普通顶点] 编号 {point_id}，角度: {angle:.1f}°（{concavity}），坐标: {p2}")
+
+        # 3. 判断直角点是否相邻
+        num_right_angles = len(right_angle_info)
+        if num_right_angles >= 2:
+            print(f"\n[相邻直角边判断] 共{num_right_angles}个直角点：")
+            for i in range(num_right_angles):
+                p_current, idx_current, id_current = right_angle_info[i]
+                p_next, idx_next, id_next = right_angle_info[(i+1) % num_right_angles]
+                
+                # 确定区间
+                if idx_current < idx_next:
+                    start, end = idx_current + 1, idx_next
+                else:
+                    start, end = idx_current + 1, num_points + idx_next
+                
+                # 检查区间内是否有内凹点
+                has_concave_between = False
+                for idx_p in range(start, end):
+                    if idx_p % num_points in concave_indices:
+                        has_concave_between = True
+                        break
+                
+                if not has_concave_between:
+                    dist_sq = distance_squared(p_current, p_next)
+                    dist_sqs.append(dist_sq)
+                    print(f"[相邻对 {i+1}] {id_current} 与 {id_next}，距离平方: {dist_sq}")
+                    mid_point = ((p_current[0]+p_next[0])//2, (p_current[1]+p_next[1])//2)
+                    cv2.line(frame2, tuple(p_current), tuple(p_next), (255, 255, 0), 2)
+                    cv2.putText(frame2, f"sq={dist_sq}", mid_point,
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
+                else:
+                    print(f"[相邻对 {i+1}] {id_current} 与 {id_next}，中间有内凹点")
+
+                # 标注轮廓序号
+        moments = cv2.moments(contour)
+        if moments["m00"] != 0:
+            cX, cY = int(moments["m10"]/moments["m00"]), int(moments["m01"]/moments["m00"])
+            cv2.putText(frame2, f"轮廓{contour_idx+1}", (cX, cY),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
         if DEBUG2:# 3. 显示这一帧(全部的轮廓)
-            frame2 = A4_frame.copy()  # 用copy()避免修改原图
+            
             print(f"\n[轮廓 #{contour_idx+1}] 顶点总数: {num_points}（含内凹点和直角点）")
             for idx_p in concave_indices:
                 p = approx_points[idx_p]
@@ -47,74 +109,16 @@ def proc_overlay_square(A4_frame, contour):
                 cv2.putText(frame2, point_id, (p[0]+10, p[1]+10),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
                 print(f"[内凹点] 编号 {point_id}，坐标: {p}")
-
-
-
-
-                  # 2. 检测直角点
-            right_angle_info = []
-            for i in range(num_points):
-                p1 = np.array(approx_points[(i-1) % num_points])
-                p2 = np.array(approx_points[i])
-                p3 = np.array(approx_points[(i+1) % num_points])
-                angle, concavity = angle_between_points(p1, p2, p3)
-                point_id = f"{contour_idx+1}-{i}"
-                
-                # 标记直角点
-                if 80 <= angle <= 120 and concavity == "外凸":
-                    right_angle_info.append( (p2, i, point_id) )
-                    cv2.circle(frame2, tuple(p2), 10, (0, 0, 255), 2)
-                    cv2.putText(frame2, point_id, (p2[0]-15, p2[1]-15),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                    print(f"[直角点] 编号 {point_id}，角度: {angle:.1f}°，坐标: {p2}")
-                elif i not in concave_indices:
-                    print(f"[普通顶点] 编号 {point_id}，角度: {angle:.1f}°（{concavity}），坐标: {p2}")
             cv2.imshow("A4 Detection", frame2)
             # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
             # 0表示无限等待，直到有按键输入
             cv2.waitKey(0)
             cv2.destroyAllWindows()  # 关闭窗口
-        # # 3. 判断直角点是否相邻
-        # num_right_angles = len(right_angle_info)
-        # if num_right_angles >= 2:
-        #     print(f"\n[相邻直角边判断] 共{num_right_angles}个直角点：")
-        #     for i in range(num_right_angles):
-        #         p_current, idx_current, id_current = right_angle_info[i]
-        #         p_next, idx_next, id_next = right_angle_info[(i+1) % num_right_angles]
-                
-        #         # 确定区间
-        #         if idx_current < idx_next:
-        #             start, end = idx_current + 1, idx_next
-        #         else:
-        #             start, end = idx_current + 1, num_points + idx_next
-                
-        #         # 检查区间内是否有内凹点
-        #         has_concave_between = False
-        #         for idx_p in range(start, end):
-        #             if idx_p % num_points in concave_indices:
-        #                 has_concave_between = True
-        #                 break
-                
-        #         if not has_concave_between:
-        #             dist_sq = distance_squared(p_current, p_next)
-        #             print(f"[相邻对 {i+1}] {id_current} 与 {id_next}，距离平方: {dist_sq}")
-        #             mid_point = ((p_current[0]+p_next[0])//2, (p_current[1]+p_next[1])//2)
-        #             cv2.line(result, tuple(p_current), tuple(p_next), (255, 255, 0), 2)
-        #             cv2.putText(result, f"sq={dist_sq}", mid_point,
-        #                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 2)
-        #         else:
-        #             print(f"[相邻对 {i+1}] {id_current} 与 {id_next}，中间有内凹点")
         
-        # # 标注轮廓序号
-        # moments = cv2.moments(contour)
-        # if moments["m00"] != 0:
-        #     cX, cY = int(moments["m10"]/moments["m00"]), int(moments["m01"]/moments["m00"])
-        #     cv2.putText(result, f"轮廓{orig_idx+1}", (cX, cY),
-        #                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    sq = min(dist_sqs)
+    min_x = math.sqrt(sq * area_cm2)
 
-
-
-    pass
+    return f"{num_points / 4}个重叠正方形", min_x
 
 def get_concave_indices(A4_frame, contour, approx_points, contour_idx):
     CONCAVE_DEFECT_THRESHOLD = 1000  # 降低内凹程度阈值，更容易检测到浅凹点
