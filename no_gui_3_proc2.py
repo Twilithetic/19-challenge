@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
 import math  # 导入数学模块（用于开平方和π值）
-import no_gui_3_proc  # 导入整个模块，而非单独变量
-DEBUG6 = 1
+from no_gui_3_proc3 import proc_overlay_square
+DEBUG6 = 0
 DEBUG7 = 1
+DEBUG8 = 1
 def get_X(A4_frame, area_cm2):
 
     if A4_frame is None:
@@ -75,12 +76,12 @@ def get_X(A4_frame, area_cm2):
     
     
     
-def distinguish_contours(inner_rect, area_cm2):
+def distinguish_contours(A4_frame, area_cm2):
     CANNY_THRESH_LOW = 50
     CANNY_THRESH_HIGH = 100
     MIN_CONTOUR_AREA = 500  # 最小轮廓面积（过滤小噪声）
     CIRCULARITY_THRESH = 0.6  # 圆形度阈值（越接近1越圆）
-    gray = cv2.cvtColor(inner_rect, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(A4_frame, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (9, 9), 0)
     # 保留像素值 > 230 的“接近纯白”区域，设为 255（纯白），其他变黑
     ret, thresh = cv2.threshold(blurred, thresh=150, maxval=255, type=cv2.THRESH_BINARY)  # 只保留接近纯白的区域
@@ -99,6 +100,7 @@ def distinguish_contours(inner_rect, area_cm2):
             # 0表示无限等待，直到有按键输入
             cv2.waitKey(0)
             cv2.destroyAllWindows()  # 关闭窗口
+    
     x = None
     type_name = ""
     if(contour_cnt == 1):
@@ -131,6 +133,7 @@ def distinguish_contours(inner_rect, area_cm2):
                 x = side_cm = np.mean(dists) * math.sqrt(area_cm2)
                 type_name = "正方形"
         else:
+            proc_overlay_square(A4_frame, contour)
             x = -1
             type_name = "哟呀正方形"
     if(contour_cnt > 1):

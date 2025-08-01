@@ -4,8 +4,8 @@ import numpy as np
 
 
 DEBUG = 1
-DEBUG2 = 0
-DEBUG3 = 0
+DEBUG2 = 1
+DEBUG3 = 1
 DEBUG4 = 0
 DEBUG5 = 1
 area_cm2 = None
@@ -43,11 +43,6 @@ def get_distance(frame):
         else:
             # 内轮廓：有父轮廓（hierarchy[3] != -1）
             inner_contour = contour
-    
-    if inner_contour is None:
-        print("inner_contour为空，重试")
-        return -1, -1, -1
-
    
 
     if DEBUG4:# 3. 显示这一帧(全部的轮廓)
@@ -61,11 +56,16 @@ def get_distance(frame):
         cv2.waitKey(0)
         cv2.destroyAllWindows()  # 关闭窗口
     distance = calculate_a4_distance(inner_contour)
-    update_pixel_area_to_cm2(outer_contour)
+    if outer_contour is not None:
+        update_pixel_area_to_cm2(outer_contour, True)
+    else:
+        update_pixel_area_to_cm2(inner_contour, False)
     A4_frame = cut_ROI_from_frame(frame, inner_contour)
     if DEBUG5:# 3. 显示这一帧(全部的轮廓)
         global area_cm2
         print(f"area_cm2:{area_cm2}")
+        if outer_contour is None:
+            print("未检测到外框")
         cv2.imshow("A4 Detection", A4_frame)
         # 4. 关键：用waitKey(0)阻塞程序，等待用户按任意键再继续（不刷新画面）
         # 0表示无限等待，直到有按键输入
@@ -84,7 +84,7 @@ def filter_contours(frame, contours, hierarchy):
         if area < 2000:  # 过滤过小轮廓（小于A4纸1%面积）
             continue
         
-        # 多边形近似（筛选四边形）
+        # # 多边形近似（筛选四边形）
         epsilon = 0.02 * cv2.arcLength(contour, True)
         approx = cv2.approxPolyDP(contour, epsilon, True)
         if len(approx) != 4:
@@ -102,6 +102,7 @@ def filter_contours(frame, contours, hierarchy):
         if min(edge_distances) < MAX_EDGE_DISTANCE_RATIO * min(w, h):
             continue
 
+
         if DEBUG2:# 3. 显示这一帧(全部的轮廓)
                 # 绘制距离和面积
             
@@ -114,6 +115,9 @@ def filter_contours(frame, contours, hierarchy):
             # 0表示无限等待，直到有按键输入
             cv2.waitKey(0)
             cv2.destroyAllWindows()  # 关闭窗口
+        
+
+
         
         candidate_contours.append(contour)
         candidate_hierarchy.append(hierarchy[0][i])  # 记录当前轮廓的层级信息
@@ -212,14 +216,17 @@ def cut_ROI_from_frame(frame, inner_contour):
         A4_frame = frame[y:y+h, x:x+w]  # [y开始:y结束, x开始:x结束]
     return A4_frame
 
-def update_pixel_area_to_cm2(outer_contour):
+def update_pixel_area_to_cm2(outer_contour, is_outer):
     global area_cm2
     try:
         outer_pixel_area = cv2.contourArea(outer_contour)
         if outer_pixel_area <= 0:
             raise ValueError("外轮廓像素面积为0，无法计算比例")
         # A4纸实际面积是 21cm * 29.7cm
-        area_cm2 = (21 * 29.7) / outer_pixel_area
+        if is_outer:
+            area_cm2 = (21 * 29.7) / outer_pixel_area
+        else:
+            area_cm2 = (17 * 25.7) / outer_pixel_area
         #print(f"更新 area_cm2: {area_cm2} cm²/像素")  # 调试用
     except Exception as e:
         print(f"更新 area_cm2 失败: {e}")
