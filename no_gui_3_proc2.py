@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import math  # 导入数学模块（用于开平方和π值）
 from no_gui_3_proc3 import proc_overlay_square
+from no_gui_3_proc4 import print_image
 DEBUG6 = 0 # A4纸内部图
 DEBUG7 = 0 # 图像轮廓检测
 def get_X(A4_frame, area_cm2):
@@ -24,6 +25,7 @@ def get_X(A4_frame, area_cm2):
     epsilon = 0.02 * cv2.arcLength(max_contour, True)  # 控制近似精度
     approx = cv2.approxPolyDP(max_contour, epsilon, True)
     approx_vertices = approx.reshape(-1, 2)  # 转换为顶点坐标列表 (n, 2)
+    
     
     # 确保是四边形（4个顶点）
     if len(approx_vertices) != 4:
