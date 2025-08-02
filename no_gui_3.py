@@ -7,7 +7,7 @@ import threading
 import time
 
 class CameraReader:
-    def __init__(self, cam_id=1):
+    def __init__(self, cam_id=0):
         self.cap = cv2.VideoCapture(cam_id)
         if not self.cap.isOpened():
             raise Exception("无法打开摄像头")

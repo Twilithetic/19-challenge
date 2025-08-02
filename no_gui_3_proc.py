@@ -6,7 +6,7 @@ from no_gui_3_proc4 import print_image
 DEBUG = 0
 DEBUG2 = 0 #第一次筛选结果
 DEBUG3 = 0 #第三次筛选结果
-DEBUG4 = 1 #顯示內A4
+DEBUG4 = 0 #顯示內A4
 DEBUG5 = 0
 
 def get_distance(frame):
@@ -100,7 +100,7 @@ def filter_contours(frame, contours, hierarchy):
         # 多边形拟合（近似为直线段）
         epsilon = CONTOUR_EPSILON_RATIO * perimeter
         approx = cv2.approxPolyDP(contour, epsilon, True)
-        
+        # print(f"????: {perimeter}, epsilon: {epsilon}, ????: {len(approx)}")
         if len(approx) != 4:  # 只保留四边形（A4纸为矩形）
             continue
         

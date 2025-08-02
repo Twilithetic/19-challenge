@@ -5,10 +5,12 @@ from no_gui_3_proc3 import proc_overlay_square
 from no_gui_3_proc4 import print_image
 DEBUG6 = 0 # A4纸内部图
 DEBUG7 = 0 # 图像轮廓检测
+DEBUG8 = 0
+DEBUG = 0
 def get_X(A4_frame, area_cm2):
 
     if A4_frame is None:
-        return None
+        return -1, -1
     
     # 1. 转为灰度图
     gray = cv2.cvtColor(A4_frame, cv2.COLOR_BGR2GRAY)
@@ -20,17 +22,31 @@ def get_X(A4_frame, area_cm2):
      
     # 3. 筛选最大的轮廓（假设目标是最大的那个）
     max_contour = max(contours, key=cv2.contourArea)
+
+    if DEBUG8:
+        print("所有輪")
+        # 3. ???????????
+        frame1 = A4_frame.copy()
+        cv2.drawContours(frame1, contours, -1, (0, 255, 0), 2)
+            # 5. ????????
+        cv2.imshow("A4 Detection", frame1)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+    # ????????????????
+    contours = max(contours, key=cv2.contourArea)
     
     # 4. 多边形近似：提取轮廓的顶点（保留4个顶点，适合矩形）
-    epsilon = 0.02 * cv2.arcLength(max_contour, True)  # 控制近似精度
-    approx = cv2.approxPolyDP(max_contour, epsilon, True)
+    epsilon = 0.02 * cv2.arcLength(contours, True)  # 控制近似精度
+    approx = cv2.approxPolyDP(contours, epsilon, True)
     approx_vertices = approx.reshape(-1, 2)  # 转换为顶点坐标列表 (n, 2)
+    # print(f"????: , epsilon: {epsilon}, ????: {len(approx)}")
     
     
     # 确保是四边形（4个顶点）
     if len(approx_vertices) != 4:
         print("未检测到四边形轮廓，无法生成内接矩形")
-        return A4_frame  #  fallback到原图
+        return -1, -1  #  fallback到原图
     
     # 5. 对4个顶点排序（确保顺序是顺时针或逆时针，方便透视变换）
     # 计算中心点
@@ -67,6 +83,8 @@ def get_X(A4_frame, area_cm2):
         cv2.waitKey(0)
         cv2.destroyAllWindows()
     x, type_name = distinguish_contours(inner_rect, area_cm2)
+    if(DEBUG):
+        print(f"x:{x}, type_name:{type_name}")
     return x, type_name
     
     
