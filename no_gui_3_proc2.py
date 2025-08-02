@@ -2,9 +2,8 @@ import cv2
 import numpy as np
 import math  # 导入数学模块（用于开平方和π值）
 from no_gui_3_proc3 import proc_overlay_square
-DEBUG6 = 0
-DEBUG7 = 0
-DEBUG8 = 0
+DEBUG6 = 0 # A4纸内部图
+DEBUG7 = 0 # 图像轮廓检测
 def get_X(A4_frame, area_cm2):
 
     if A4_frame is None:
@@ -61,6 +60,7 @@ def get_X(A4_frame, area_cm2):
     
     # 调试显示结果
     if DEBUG6:
+        print("A4处理内部图")
         cv2.imshow("A4 Detection", inner_rect)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
@@ -92,7 +92,7 @@ def distinguish_contours(A4_frame, area_cm2):
 
     if DEBUG7:# 3. 显示这一帧(全部的轮廓)
         for contour in filtter_conrours:
-            print(f"轮廓数量：{contour_cnt}")
+            print(f"轮廓检测数量：{contour_cnt}")
             frame7 = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)  # 灰度图→三通道BGR
             cv2.drawContours(frame7, [contour], -1, (0, 255, 0), 2)
             cv2.imshow("A4 Detection", frame7)

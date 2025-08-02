@@ -59,8 +59,9 @@ frame = None
 DEBUG = 1
 
 def main():
+    camera = CameraReader()
     try:
-        camera = CameraReader()
+        
         global frame
         # 初始化摄像头
         # cap = cv2.VideoCapture(0)
@@ -93,6 +94,9 @@ def main():
                     distance_list = []
                     x_list = []
                     is_runing = True
+                if key == ord('2'):
+                    print("退出中...")
+                    break  # ?????
             if(is_runing):
                 distance, A4_frame, area_cm2 = get_distance(frame)
                 if(distance >= 90 and area_cm2 is not None):

@@ -4,9 +4,9 @@ from no_gui_3_proc4 import print_image
 
 
 DEBUG = 1
-DEBUG2 = 1 #第一次沙宣
-DEBUG3 = 1#第二次
-DEBUG4 = 1#顯示內A4
+DEBUG2 = 0 #第一次沙宣
+DEBUG3 = 0 #第二次
+DEBUG4 = 1 #顯示內A4
 DEBUG5 = 0
 
 def get_distance(frame):
@@ -29,33 +29,47 @@ def get_distance(frame):
     in_out_rect_contours, in_out_hierarchy = filter_contours(frame, contours, hierarchy)
     inner_contour = None
     outer_contour = None
+    if DEBUG4:# 3. 显示这一帧(全部的轮廓)
+        print("輪廓結果")
+        frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
+        cv2.drawContours(frame4, in_out_rect_contours, 0, (0, 255, 0), 2)
+        cv2.putText(frame4, f" should be one inner", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+        print_image(frame4)
 
-        # 检查是否有有效轮廓
+        # ?????????
     if not in_out_rect_contours:
-        print("filter_contours未返回任何轮廓，无法提取内/外轮廓")
+        print("filter_contours没有找到A4之")
         return -1, -1, -1
 
-    for i, contour in enumerate(in_out_rect_contours):
-        # 外轮廓：没有父轮廓（hierarchy[3] == -1）
-        if in_out_hierarchy[i][3] == -1:
-            outer_contour = contour
-        else:
-            # 内轮廓：有父轮廓（hierarchy[3] != -1）
-            inner_contour = contour
-    
+    # ??????????????????
+    # ???[(??, ??), ...]
+    contour_with_area = [
+        (cv2.contourArea(contour), contour) 
+        for contour in in_out_rect_contours
+    ]
+    # ???????
+    contour_with_area.sort(key=lambda x: x[0], reverse=True)
+
+    # ??????????
+    if len(contour_with_area) == 1:
+        # ??????????????
+        inner_contour = contour_with_area[0][1]
+        print("???????????????")
+    else:  
+        # ???????????????????????
+        outer_contour = contour_with_area[0][1]  # ????
+        inner_contour = contour_with_area[-1][1]  # ????
+        print(f"???{len(contour_with_area)}??????????????")
+
+    # ?????????????????
     if inner_contour is None:
-        print("inner_contour为空，重试")
+        print("inner_contour?????")
         return -1, -1, -1
 
    
 
-    if DEBUG4:# 3. 显示这一帧(全部的轮廓)
-        print("內輪廓結果")
-        frame4 = frame.copy()  # 每次用原图复制，避免叠加之前的绘制
-        cv2.drawContours(frame4, [inner_contour], 0, (0, 255, 0), 2)
-        cv2.putText(frame4, f" should be one inner", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        print_image(frame4)
+
     distance = calculate_a4_distance(inner_contour)
     area_cm2 = update_pixel_area_to_cm2(outer_contour)
     A4_frame = cut_ROI_from_frame(frame, inner_contour)
@@ -67,7 +81,8 @@ def get_distance(frame):
     print(f"距离(D): {distance}")
 
 def filter_contours(frame, contours, hierarchy):
-    MAX_EDGE_DISTANCE_RATIO = 0.1  # 内矩形距离图像边缘至少5%
+    MAX_EDGE_DISTANCE_RATIO = 0.01  # 内矩形距离图像边缘至少5%
+    CONTOUR_EPSILON_RATIO = 0.02  # 以轮廓周长的2%作为近似精度
     candidate_contours = []
     candidate_hierarchy = []  # 保存候选轮廓对应的层级信息
     for i, contour in enumerate(contours):
@@ -75,10 +90,13 @@ def filter_contours(frame, contours, hierarchy):
         if area < 2000:  # 过滤过小轮廓（小于A4纸1%面积）
             continue
         
-        # 多边形近似（筛选四边形）
-        epsilon = 0.02 * cv2.arcLength(contour, True)
+               # 轮廓周长计算
+        perimeter = cv2.arcLength(contour, True)
+        # 多边形拟合（近似为直线段）
+        epsilon = CONTOUR_EPSILON_RATIO * perimeter
         approx = cv2.approxPolyDP(contour, epsilon, True)
-        if len(approx) != 4:
+        
+        if len(approx) != 4:  # 只保留四边形（A4纸为矩形）
             continue
         
         # 筛选宽高比符合A4纸的矩形（21/29.7≈0.707）
